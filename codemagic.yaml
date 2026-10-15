@@ -1,0 +1,23 @@
+
+workflows:
+  provenance_ios_test:
+    name: Provenance iOS - Simulator Build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+    scripts:
+      - name: Initialize submodules
+        script: |
+          git submodule update --init --recursive
+
+      - name: Build Provenance for iOS Simulator
+        script: |
+          xcodebuild \
+            -workspace Provenance.xcworkspace \
+            -scheme Provenance \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
