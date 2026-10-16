@@ -26,6 +26,7 @@ enum ExitCode: Error {
 
 /// Runs `git` with stderr sent to `/dev/null` so diagnostic noise never pollutes parsed stdout.
 private func git(_ arguments: [String], repoRoot: URL) throws -> String {
+    #if os(macOS)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
     process.arguments = arguments
@@ -38,6 +39,10 @@ private func git(_ arguments: [String], repoRoot: URL) throws -> String {
     guard process.terminationStatus == 0 else { return "" }
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    #else
+    // Git process execution is only supported in the macOS build tool host.
+    return ""
+    #endif
 }
 
 private func generateSwift(repoRoot: URL) throws -> String {
