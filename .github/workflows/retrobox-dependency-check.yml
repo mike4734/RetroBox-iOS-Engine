@@ -5,6 +5,7 @@ on:
       - retrobox-lite
     paths:
       - '.github/workflows/retrobox-dependency-check.yml'
+      - 'External/PackageBuildInfo/Sources/PackageBuildInfo/PackageBuildInfoGenerator.swift'
   workflow_dispatch:
 
 permissions:
