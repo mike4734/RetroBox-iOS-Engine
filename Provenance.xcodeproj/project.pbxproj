@@ -1269,9 +1269,8 @@
 			dstSubfolderSpec = 10;
 			files = (
 				B336F30F2F6E8612004ABEE6 /* PVCheevos in Embed Frameworks */,
-				B3E881972D90C4BA00A80D83 /* PVEmuThree.framework in Embed Frameworks */,
-				C0C0CAFE0A2A000000000009 /* PVAzahar.framework in Embed Frameworks */,
-				B3AD74462D24737B001E5EC3 /* PVfMSX.framework in Embed Frameworks */,
+
+
 				B3AD744A2D2474F3001E5EC3 /* PVCoreBridgeRetro.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
@@ -2611,7 +2610,7 @@
 			files = (
 				B3F7E378297736BE00362B92 /* CoreTelephony.framework in Frameworks */,
 				B3F7E37A297736BE00362B92 /* Photos.framework in Frameworks */,
-				B3AD74452D24737B001E5EC3 /* PVfMSX.framework in Frameworks */,
+
 				B3F7E37D297736BE00362B92 /* GameController.framework in Frameworks */,
 				B3F7E37E297736BE00362B92 /* libxml2.dylib in Frameworks */,
 				B35F93E52D2F8E560016E633 /* WhatsNewKit in Frameworks */,
@@ -2641,8 +2640,7 @@
 				B3F7E3B3297736BE00362B92 /* SteamController in Frameworks */,
 				B3F7E3B4297736BE00362B92 /* Metal.framework in Frameworks */,
 				B3250A2F2CCEE29800E6D7CE /* FreemiumKit in Frameworks */,
-				B3E881962D90C4BA00A80D83 /* PVEmuThree.framework in Frameworks */,
-				C0C0CAFE0A2A000000000008 /* PVAzahar.framework in Frameworks */,
+
 				B3F7E3B5297736BE00362B92 /* OpenGLES.framework in Frameworks */,
 				B3F7E3B7297736BE00362B92 /* Foundation.framework in Frameworks */,
 				B3F7E3B8297736BE00362B92 /* OpenGL.framework in Frameworks */,

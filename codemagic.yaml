@@ -1,7 +1,6 @@
-
 workflows:
   provenance_ios_test:
-    name: Provenance iOS - Simulator Build
+    name: RetroBox iOS - Lite Simulator
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
@@ -10,16 +9,18 @@ workflows:
       - name: Initialize submodules
         script: |
           git submodule update --init --recursive
-
-      - name: Build Provenance for iOS Simulator
+      - name: Validate Lite scheme
+        script: |
+          xcodebuild -list -project Provenance.xcodeproj
+      - name: Build Lite for iOS Simulator
         script: |
           xcodebuild \
             -workspace Provenance.xcworkspace \
-            -scheme Provenance \
+            -scheme Provenance-Lite \
             -configuration Debug \
             -sdk iphonesimulator \
-                     -destination 'generic/platform=iOS Simulator' \
-          -skipPackagePluginValidation \
-          -skipMacroValidation \
-          CODE_SIGNING_ALLOWED=NO \
-          build
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build
