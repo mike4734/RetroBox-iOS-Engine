@@ -20,6 +20,10 @@ jobs:
         with:
           submodules: false
           fetch-depth: 1
+      - name: Initialize required submodules
+        run: |
+          ./Scripts/ci/ci-init-submodules.sh
+          test -f Cores/4DO/Package.swift
       - name: Select Xcode 26.3
         uses: maxim-lobanov/setup-xcode@v1.6.0
         with:
