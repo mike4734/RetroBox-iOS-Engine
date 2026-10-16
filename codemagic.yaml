@@ -19,5 +19,6 @@ workflows:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+                      -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
             build
