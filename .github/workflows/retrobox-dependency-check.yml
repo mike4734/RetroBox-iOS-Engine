@@ -1,0 +1,46 @@
+name: RetroBox iOS - Dependency Check
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-packages:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact branch and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+      - name: Select Xcode 26.3
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.3'
+      - name: Show Xcode and package pins
+        run: |
+          xcodebuild -version
+          for file in Provenance.xcworkspace/xcshareddata/swiftpm/Package.resolved Provenance.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; do
+            if [ -f "$file" ]; then
+              echo "=== $file ==="
+              grep -A 7 -E '"identity" : "(defaults|hexcolors|swift-syntax)"' "$file" || true
+            fi
+          done
+      - name: Resolve packages only (no emulator compilation)
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -workspace Provenance.xcworkspace \
+            -scheme "Provenance-Lite (AppStore)" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation 2>&1 | tee /tmp/retrobox-package-resolution.log
+      - name: Upload resolution log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrobox-package-resolution-log
+          path: /tmp/retrobox-package-resolution.log
+          if-no-files-found: ignore
+          retention-days: 7
