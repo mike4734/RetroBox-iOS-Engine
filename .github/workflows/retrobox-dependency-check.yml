@@ -13,7 +13,7 @@ permissions:
 jobs:
   resolve-packages:
     runs-on: macos-26
-    timeout-minutes: 25
+    timeout-minutes: 180
     steps:
       - name: Checkout exact branch and submodules
         uses: actions/checkout@v4
@@ -45,6 +45,27 @@ jobs:
             -scheme "Provenance-Lite (AppStore)" \
             -skipPackagePluginValidation \
             -skipMacroValidation 2>&1 | tee /tmp/retrobox-package-resolution.log
+      - name: Validate iOS Lite build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace Provenance.xcworkspace \
+            -scheme "Provenance-Lite (AppStore)" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee /tmp/retrobox-simulator-build.log
+      - name: Upload simulator build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrobox-simulator-build-log
+          path: /tmp/retrobox-simulator-build.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload resolution log
         if: always()
         uses: actions/upload-artifact@v4
