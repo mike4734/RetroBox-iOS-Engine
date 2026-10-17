@@ -15,6 +15,12 @@ workflows:
           git clone https://github.com/libretro/RetroArch.git retroarch-ios
           git -C retroarch-ios checkout 9285db09dbfce3f9b22a8b0cfd765493b077dc7c
           git -C retroarch-ios rev-parse HEAD > diagnostics/retroarch-commit.txt
+          echo 'WebServer dependency references:' > diagnostics/webserver-dependencies.txt
+          grep -R -n -m 10 'GCDWebDAVServer\|GCDWebServer' retroarch-ios/pkg/apple/RetroArch_iOS11.xcodeproj/project.pbxproj retroarch-ios/pkg/apple/WebServer >> diagnostics/webserver-dependencies.txt 2>&1 || true
+          echo 'Available WebDAV headers:' >> diagnostics/webserver-dependencies.txt
+          find retroarch-ios -iname '*GCDWebDAVServer*' -o -iname '*GCDWebServer*' >> diagnostics/webserver-dependencies.txt
+          echo 'Git submodules:' >> diagnostics/webserver-dependencies.txt
+          git -C retroarch-ios submodule status >> diagnostics/webserver-dependencies.txt 2>&1 || true
       - name: Compile and preserve all failures
         script: |
           set +e
