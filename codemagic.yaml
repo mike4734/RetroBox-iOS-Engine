@@ -1,35 +1,34 @@
 workflows:
   retrobox_i1_ios:
-    name: RetroBox i1 - RetroArch iOS Foundation
+    name: RetroBox i1 - RetroArch iOS Simulator Build
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       xcode: latest
     scripts:
-      - name: Check out official RetroArch source
+      - name: Check out tested RetroArch revision
         script: |
           set -e
-          git clone --depth 1 https://github.com/libretro/RetroArch.git retroarch-ios
-          git -C retroarch-ios rev-parse HEAD | tee retroarch-source-commit.txt
-      - name: Inspect Apple build configuration
+          git clone https://github.com/libretro/RetroArch.git retroarch-ios
+          git -C retroarch-ios checkout 9285db09dbfce3f9b22a8b0cfd765493b077dc7c
+      - name: Build RetroArch iOS for simulator
+        script: |
+          set -o pipefail
+          xcodebuild \
+            -project retroarch-ios/pkg/apple/RetroArch_iOS11.xcodeproj \
+            -scheme 'RetroArch iOS Debug' \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/retroarch-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee retroarch-ios-build.log
+      - name: Collect simulator app
         script: |
           set -e
-          echo "Xcode:"
-          xcodebuild -version
-          echo "Apple build files:"
-          find retroarch-ios -maxdepth 5 \( -name '*.xcodeproj' -o -name '*.xcworkspace' -o -name '*ios*.sh' -o -name '*iOS*.sh' \) -print | head -100 | tee apple-build-files.txt
-          echo "Available Apple build instructions:"
-          find retroarch-ios -maxdepth 4 -iname '*apple*' -o -iname '*ios*' | head -100
-      - name: Identify RetroArch iOS schemes
-        script: |
-          set -e
-          project=$(find retroarch-ios -name '*.xcodeproj' -print -quit)
-          if [ -z "$project" ]; then
-            echo "No Xcode project found; investigate RetroArch's Apple build system before attempting a build."
-            exit 1
-          fi
-          xcodebuild -list -project "$project" | tee retroarch-xcode-schemes.txt
+          find "$CM_BUILD_DIR/retroarch-derived-data/Build/Products" -name '*.app' -type d -print
+          mkdir -p build-output
+          find "$CM_BUILD_DIR/retroarch-derived-data/Build/Products" -name '*.app' -type d -exec cp -R '{}' build-output/ \;
     artifacts:
-      - retroarch-source-commit.txt
-      - apple-build-files.txt
-      - retroarch-xcode-schemes.txt
+      - retroarch-ios-build.log
+      - build-output/**
