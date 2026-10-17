@@ -1,0 +1,113 @@
+name: RetroBox iPhone - RetroArch five-core baseline
+on:
+  push:
+    branches: [retrobox-retroarch]
+    paths:
+      - '.github/workflows/retrobox-retroarch-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retrobox-retroarch-ios
+  cancel-in-progress: true
+
+jobs:
+  iphone:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout pinned RetroArch release source
+        uses: actions/checkout@v4
+        with:
+          repository: libretro/RetroArch
+          ref: 69a4f0ea1e8aaf442ae4858f2e7f2b31a1776576
+          submodules: recursive
+          fetch-depth: 1
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.3'
+      - name: Fetch only the five iPhone cores
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pkg/apple/iOS/modules
+          bash pkg/apple/update-cores.sh ios stella2014 fceumm snes9x genesis_plus_gx fbneo
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          required = ['stella2014', 'fceumm', 'snes9x', 'genesis_plus_gx', 'fbneo']
+          root = Path('pkg/apple/iOS/modules')
+          found = list(root.glob('*libretro*.dylib'))
+          records = []
+          for core in required:
+              matches = [p for p in found if p.name in (core+'_libretro_ios.dylib', core+'_libretro.dylib')]
+              if len(matches) != 1:
+                  raise SystemExit(f'Missing or ambiguous core: {core}')
+              p = matches[0]
+              records.append(dict(core=core, file=p.name, sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
+          if len(found) != len(required):
+              raise SystemExit('Unexpected additional core binaries')
+          Path('retrobox-core-manifest.json').write_text(json.dumps({
+              'frontend_commit': '69a4f0ea1e8aaf442ae4858f2e7f2b31a1776576', 'frontend_version': 'v1.22.2',
+              'cores': records, 'runtime_tested': False}, indent=2))
+          PY
+      - name: Set separate test app identity
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName RetroBox Test" pkg/apple/iOS/Info.plist
+      - name: Build original iOS frontend with five cores
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project pkg/apple/RetroArch_iOS13.xcodeproj \
+            -target RetroArchiOS \
+            -configuration Release \
+            -sdk iphoneos -arch arm64 \
+            CONFIGURATION_BUILD_DIR="$RUNNER_TEMP/retrobox-products" \
+            IOS_BUNDLE_IDENTIFIER=com.retrobox.ios.test \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=- \
+            APPSTORE_BUILD= \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            2>&1 | tee "$RUNNER_TEMP/retrobox-retroarch-build.log"
+      - name: Verify embedded cores and package development IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$RUNNER_TEMP/retrobox-products/RetroArch.app"
+          test -d "$app_path"
+          for core in stella2014 fceumm snes9x genesis.plus.gx fbneo; do
+            test -f "$app_path/Frameworks/$core.libretro.framework/$core.libretro"
+          done
+          mkdir -p "$RUNNER_TEMP/retrobox-package/Payload"
+          ditto "$app_path" "$RUNNER_TEMP/retrobox-package/Payload/RetroArch.app"
+          cp COPYING "$RUNNER_TEMP/retrobox-package/"
+          cp retrobox-core-manifest.json "$RUNNER_TEMP/retrobox-package/"
+          git diff > "$RUNNER_TEMP/retrobox-package/frontend-changes.patch"
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/retrobox-package/RetroArch-v1.22.2-source.tar.gz"
+          cd "$RUNNER_TEMP/retrobox-package"
+          ditto -c -k --keepParent Payload RetroBox-iPhone-5cores-UNSIGNED.ipa
+      - name: Upload build and source provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: RetroBox-iPhone-5cores-baseline-UNSIGNED
+          path: |
+            ${{ runner.temp }}/retrobox-package/RetroBox-iPhone-5cores-UNSIGNED.ipa
+            ${{ runner.temp }}/retrobox-package/retrobox-core-manifest.json
+            ${{ runner.temp }}/retrobox-package/COPYING
+            ${{ runner.temp }}/retrobox-package/frontend-changes.patch
+            ${{ runner.temp }}/retrobox-package/RetroArch-v1.22.2-source.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrobox-retroarch-ios-build-log
+          path: ${{ runner.temp }}/retrobox-retroarch-build.log
+          if-no-files-found: ignore
+          retention-days: 7
