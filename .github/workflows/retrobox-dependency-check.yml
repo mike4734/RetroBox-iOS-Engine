@@ -6,7 +6,12 @@ on:
     paths:
       - '.github/workflows/retrobox-dependency-check.yml'
       - 'External/PackageBuildInfo/Sources/PackageBuildInfo/PackageBuildInfoGenerator.swift'
+      - 'Provenance/Main UI/ProvenanceApp.swift'
   workflow_dispatch:
+
+concurrency:
+  group: retrobox-ios-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -65,6 +70,46 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee /tmp/retrobox-simulator-build.log
+      - name: Build iPhone app archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace Provenance.xcworkspace \
+            -scheme "Provenance-Lite (AppStore)" \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/RetroBox.xcarchive" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/retrobox-device-build.log
+      - name: Package unsigned IPA for development signing
+        run: |
+          set -euo pipefail
+          applications="$RUNNER_TEMP/RetroBox.xcarchive/Products/Applications"
+          app_path="$(find "$applications" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          test -n "$app_path"
+          mkdir -p "$RUNNER_TEMP/retrobox-package/Payload"
+          ditto "$app_path" "$RUNNER_TEMP/retrobox-package/Payload/$(basename "$app_path")"
+          cd "$RUNNER_TEMP/retrobox-package"
+          ditto -c -k --keepParent Payload "$RUNNER_TEMP/RetroBox-iOS-UNSIGNED.ipa"
+      - name: Upload unsigned iPhone IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: RetroBox-iOS-UNSIGNED-requires-signing
+          path: ${{ runner.temp }}/RetroBox-iOS-UNSIGNED.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload iPhone build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrobox-device-build-log
+          path: /tmp/retrobox-device-build.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload simulator build log
         if: always()
         uses: actions/upload-artifact@v4
