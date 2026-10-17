@@ -1,52 +1,5 @@
-workflows:
-  retrobox_i1_ios:
-    name: RetroBox i1 - iOS Build + Full Diagnostics
-    instance_type: mac_mini_m2
-    max_build_duration: 60
-    environment:
-      xcode: latest
-    scripts:
-      - name: Record toolchain and source
-        script: |
-          mkdir -p diagnostics
-          xcodebuild -version > diagnostics/xcode-version.txt 2>&1
-          xcrun simctl list devices available > diagnostics/simulators.txt 2>&1
-          git rev-parse HEAD > diagnostics/retrobox-commit.txt
-          git clone https://github.com/libretro/RetroArch.git retroarch-ios
-          git -C retroarch-ios checkout 9285db09dbfce3f9b22a8b0cfd765493b077dc7c
-          git -C retroarch-ios rev-parse HEAD > diagnostics/retroarch-commit.txt
-          echo 'WebServer dependency references:' > diagnostics/webserver-dependencies.txt
-          grep -R -n -m 10 'GCDWebDAVServer\|GCDWebServer' retroarch-ios/pkg/apple/RetroArch_iOS11.xcodeproj/project.pbxproj retroarch-ios/pkg/apple/WebServer >> diagnostics/webserver-dependencies.txt 2>&1 || true
-          echo 'Available WebDAV headers:' >> diagnostics/webserver-dependencies.txt
-          find retroarch-ios -iname '*GCDWebDAVServer*' -o -iname '*GCDWebServer*' >> diagnostics/webserver-dependencies.txt
-          echo 'Git submodules:' >> diagnostics/webserver-dependencies.txt
-          git -C retroarch-ios submodule status >> diagnostics/webserver-dependencies.txt 2>&1 || true
-      - name: Compile and preserve all failures
-        script: |
-          set +e
-          set -o pipefail
-          xcodebuild \
-            -project retroarch-ios/pkg/apple/RetroArch_iOS11.xcodeproj \
-            -scheme 'RetroArch iOS Debug' \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$CM_BUILD_DIR/retroarch-derived-data" \
-            -resultBundlePath "$CM_BUILD_DIR/diagnostics/RetroArchBuild.xcresult" \
-            CODE_SIGNING_ALLOWED=NO \
-            build > retroarch-ios-build.log 2>&1
-          result=$?
-          echo "$result" > diagnostics/build-exit-code.txt
-          python3 tools/diagnose_build.py retroarch-ios-build.log
-          find "$CM_BUILD_DIR/retroarch-derived-data/Build/Products" -name '*.app' -type d -print > diagnostics/apps-found.txt 2>&1
-          if [ "$result" -eq 0 ]; then
-            mkdir -p build-output
-            find "$CM_BUILD_DIR/retroarch-derived-data/Build/Products" -name '*.app' -type d -exec cp -R '{}' build-output/ \;
-          fi
-          echo "=== DIAGNOSTIC SUMMARY ==="
-          cat diagnostics/summary.md
-          exit "$result"
-    artifacts:
-      - retroarch-ios-build.log
-      - diagnostics/**
-      - build-output/**
+# RetroBox i1 — native Libretro host only.
+# The previous RetroArch frontend build was intentionally removed.
+# Do not run a Codemagic build until an iOS Libretro host target exists.
+# No workflows are defined here to avoid wasting macOS build minutes.
+workflows: {}
