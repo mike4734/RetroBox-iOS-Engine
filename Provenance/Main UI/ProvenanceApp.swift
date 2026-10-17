@@ -9,6 +9,9 @@ import PVLibrary
 import PVEmulatorCore
 import PVCoreBridge
 import UserNotifications
+#if os(iOS)
+import UniformTypeIdentifiers
+#endif
 #if os(tvOS)
 import CloudKit
 #endif
@@ -59,6 +62,9 @@ struct ProvenanceApp: App {
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView()
+#if os(iOS)
+                .modifier(RetroBoxDirectImport())
+#endif
                 .netplayJoinHandler()
                 .environmentObject(appState)
                 .environmentObject(PVFeatureFlagsManager.shared)
@@ -970,3 +976,78 @@ extension ProvenanceApp {
 // What's New!
 // Release notes are defined in PVUI/Sources/PVSwiftUI/Resources/whats-new.json.
 // To add a new version: edit that JSON file — no Swift code changes needed.
+
+#if os(iOS)
+/// A direct Files picker for the RetroBox test build; uses the existing ROM importer.
+private struct RetroBoxDirectImport: ViewModifier {
+    @ObservedObject private var appState = AppState.shared
+    @State private var showingPicker = false
+    @State private var copyingFiles = false
+    @State private var importMessage = ""
+    @State private var showingMessage = false
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom) {
+                if appState.bootupState == .completed && appState.emulationUIState.currentGame == nil {
+                    Button {
+                        showingPicker = true
+                    } label: {
+                        Label(copyingFiles ? "Preparando archivos…" : "Importar juegos", systemImage: "folder.badge.plus")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(copyingFiles)
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial)
+                }
+            }
+            .fileImporter(isPresented: $showingPicker, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+                switch result {
+                case .success(let urls):
+                    queueFiles(urls)
+                case .failure(let error):
+                    importMessage = error.localizedDescription
+                    showingMessage = true
+                }
+            }
+            .alert("Importar juegos", isPresented: $showingMessage) {
+                Button("Aceptar", role: .cancel) { }
+            } message: {
+                Text(importMessage)
+            }
+    }
+
+    /// Copy through Provenance's security-scoped receiver, then explicitly enqueue.
+    private func queueFiles(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        copyingFiles = true
+        Task { @MainActor in
+            defer { copyingFiles = false }
+            var copied: [URL] = []
+            var failures: [String] = []
+            for url in urls {
+                do {
+                    copied.append(try IncomingFileReceiver.receive(url, into: Paths.romsImportPath))
+                } catch {
+                    failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+            if !copied.isEmpty {
+                await GameImporter.shared.addImports(forPaths: copied)
+                GameImporter.shared.startProcessing()
+            }
+            importMessage = copied.isEmpty
+                ? "No se pudieron preparar los archivos."
+                : "Archivos enviados a la cola: \(copied.count). Consulta la biblioteca cuando termine la importación."
+            if !failures.isEmpty {
+                importMessage += "\n\n" + failures.joined(separator: "\n")
+            }
+            showingMessage = true
+        }
+    }
+}
+#endif
