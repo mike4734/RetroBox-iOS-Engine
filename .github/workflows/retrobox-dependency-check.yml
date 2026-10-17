@@ -46,7 +46,7 @@ jobs:
             -scheme "Provenance-Lite (AppStore)" \
             -skipPackagePluginValidation \
             -skipMacroValidation 2>&1 | tee /tmp/retrobox-package-resolution.log
-      - name: Validate iOS Lite build for simulator
+      - name: Validate iOS Lite build for ARM64 simulator
         run: |
           set -o pipefail
           xcodebuild \
@@ -57,6 +57,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee /tmp/retrobox-simulator-build.log
       - name: Upload simulator build log
