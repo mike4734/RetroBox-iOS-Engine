@@ -1,26 +1,35 @@
 workflows:
-  provenance_ios_test:
-    name: RetroBox iOS - Lite Simulator
+  retrobox_i1_ios:
+    name: RetroBox i1 - RetroArch iOS Foundation
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       xcode: latest
     scripts:
-      - name: Initialize submodules
+      - name: Check out official RetroArch source
         script: |
-          git submodule update --init --recursive
-      - name: Validate Lite scheme
+          set -e
+          git clone --depth 1 https://github.com/libretro/RetroArch.git retroarch-ios
+          git -C retroarch-ios rev-parse HEAD | tee retroarch-source-commit.txt
+      - name: Inspect Apple build configuration
         script: |
-          xcodebuild -list -project Provenance.xcodeproj
-      - name: Build Lite for iOS Simulator
+          set -e
+          echo "Xcode:"
+          xcodebuild -version
+          echo "Apple build files:"
+          find retroarch-ios -maxdepth 5 \( -name '*.xcodeproj' -o -name '*.xcworkspace' -o -name '*ios*.sh' -o -name '*iOS*.sh' \) -print | head -100 | tee apple-build-files.txt
+          echo "Available Apple build instructions:"
+          find retroarch-ios -maxdepth 4 -iname '*apple*' -o -iname '*ios*' | head -100
+      - name: Identify RetroArch iOS schemes
         script: |
-          xcodebuild \
-            -workspace Provenance.xcworkspace \
-            -scheme Provenance-Lite \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          set -e
+          project=$(find retroarch-ios -name '*.xcodeproj' -print -quit)
+          if [ -z "$project" ]; then
+            echo "No Xcode project found; investigate RetroArch's Apple build system before attempting a build."
+            exit 1
+          fi
+          xcodebuild -list -project "$project" | tee retroarch-xcode-schemes.txt
+    artifacts:
+      - retroarch-source-commit.txt
+      - apple-build-files.txt
+      - retroarch-xcode-schemes.txt
