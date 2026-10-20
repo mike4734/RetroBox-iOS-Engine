@@ -1,5 +1,38 @@
-# RetroBox i1 — native Libretro host only.
-# The previous RetroArch frontend build was intentionally removed.
-# Do not run a Codemagic build until an iOS Libretro host target exists.
-# No workflows are defined here to avoid wasting macOS build minutes.
-workflows: {}
+workflows:
+  retrobox_i1_nes_unsigned:
+    name: RetroBox i1 NES - iOS ARM64 compile verification
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: latest
+    scripts:
+      - name: Fetch and build FCEUmm core for iOS ARM64
+        script: |
+          set -euo pipefail
+          mkdir -p vendor
+          git clone --depth 1 https://github.com/libretro/libretro-fceumm.git vendor/libretro-fceumm
+          cd vendor/libretro-fceumm
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CC="$(xcrun --sdk iphoneos --find clang)"
+          CXX="$(xcrun --sdk iphoneos --find clang++)"
+          make -f Makefile.libretro -j"$(sysctl -n hw.ncpu)" \
+            platform=ios-arm64 STATIC_LINKING=1 HAVE_HDPACK=0 \
+            CC="$CC -arch arm64 -isysroot $SDK -miphoneos-version-min=16.0" \
+            CXX="$CXX -arch arm64 -isysroot $SDK -miphoneos-version-min=16.0"
+          find . -maxdepth 2 -type f \( -name '*fceumm*.a' -o -name '*fceumm*.dylib' \) -print
+          CANDIDATE="$(find . -maxdepth 2 -type f \( -name '*fceumm*.a' -o -name '*fceumm*.dylib' \) -print -quit)"
+          test -n "$CANDIDATE"
+          test "$(head -c 8 "$CANDIDATE")" = '!<arch>'$'\n' || { echo 'Core output is not a static archive'; exit 1; }
+          cp "$CANDIDATE" ../libfceumm_ios.a
+          xcrun lipo -info ../libfceumm_ios.a
+      - name: Build unsigned iPhone app for compile verification
+        script: |
+          set -euo pipefail
+          xcodebuild -project RetroBoxi1.xcodeproj -scheme RetroBoxi1 \
+            -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          cd build/Build/Products/Debug-iphoneos
+          zip -qry "$CM_BUILD_DIR/RetroBoxi1-unsigned-app.zip" RetroBoxi1.app
+    artifacts:
+      - RetroBoxi1-unsigned-app.zip
+      - build/Logs/Build/**
